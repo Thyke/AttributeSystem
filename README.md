@@ -1,509 +1,205 @@
-# Attribute System
+# Attribute System for Unreal Engine
 
-A component-based, modular, and Blueprint-friendly attribute management system for Unreal Engine.
+A robust, modular, and data-driven Attribute System for Unreal Engine. Built on **GameplayTags**, this system handles complex attribute logic, modifiers, temporary buffs/debuffs, and automatic regeneration with ease. It is designed to be production-ready, thread-safe, and fully exposed to Blueprints.
 
----
+> **Copyright (C) Thyke. All Rights Reserved.**
 
-*Read this in other languages: [English](#attribute-system), [Turkish](#attribute-system-türkçe)*
+-----
 
----
+## 🇬🇧 English Documentation
 
-## Overview
+### Features
 
-Attribute System is a flexible solution for managing gameplay attributes (health, mana, stamina, etc.) in Unreal Engine. It provides a component-based architecture for easy integration into any actor, with support for attribute modifications, regeneration, thresholds, and persistence.
+  * **GameplayTag Based:** Uses `FGameplayTag` for efficient attribute identification and lookup. No hardcoded strings or enums.
+  * **Data-Driven Design:** Define attributes (Health, Mana, Strength, etc.) using `UAttributeDefinition` Data Assets.
+  * **Runtime Modification:** Add or remove attributes dynamically at runtime.
+  * **Advanced Modifier System:**
+      * Supports **Additive**, **Multiplicative**, **Divide**, and **Override** operations.
+      * **Priority System** for calculation order.
+      * **Temporary Modifiers** with automatic duration handling (Buffs/Debuffs).
+  * **Automatic Regeneration:** Built-in support for `PerSecond`, `PerTick`, or `Delayed` (e.g., shield regen after damage stops) regeneration logic.
+  * **Smart Clamping:** Attributes can be clamped by min/max values or **clamped to another attribute** (e.g., Current Health clamped to Max Health).
+  * **Blueprint Function Library:** Extensive library for easy access to values, checking costs, and applying changes without C++.
+  * **Event System:** Rich delegates for UI updates (`OnAttributeChanged`, `OnAttributeReachedZero`, `OnAttributeReachedMax`, etc.).
 
-## Features
+### Installation
 
-- **Component-Based Architecture**: Easy to add to any actor with minimal setup
-- **Data-Driven Design**: Configure attributes using Data Assets
-- **GameplayTags Integration**: Use tags to identify and reference attributes
-- **Full Blueprint Support**: Complete access to all functionality from Blueprints
-- **Attribute Modifiers**: Apply temporary or permanent modifications to attributes
-- **Automatic Regeneration**: Configure attributes to regenerate over time
-- **Event-Based System**: React to attribute changes with delegates
-- **Save/Load Support**: Persist attribute data between game sessions
-- **Threshold Notifications**: Receive events when attributes reach specific values
-- **Performance Optimized**: Designed for minimal overhead
+1.  Copy the `AttributeSystem` folder into your project's `Plugins` or `Source` directory.
+2.  Add `"AttributeSystem"` to your `.uproject` file or `PublicDependencyModuleNames` in your project's `.Build.cs` file:
+    ```csharp
+    PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayTags", "AttributeSystem" });
+    ```
+3.  Regenerate project files and compile.
 
-## Installation
+### Getting Started
 
-1. Clone this repository
-2. Copy the `AttributeSystem` folder to your project's `Plugins` directory
-3. Regenerate project files and recompile your project
-4. Enable the plugin in your project settings
+#### 1\. Define an Attribute
 
-Alternatively, you can copy the source files directly into your project's source directory.
+Create a Data Asset derived from `AttributeDefinition`.
 
-## Basic Usage
+  * **Right Click in Content Browser** -\> Miscellaneous -\> Data Asset -\> `AttributeDefinition`.
+  * **Attribute Tag:** `Attribute.Health`
+  * **Type:** Resource (for HP/Mana) or Flat (for Strength/Agility).
+  * **Clamp Config:** Enable Max Clamp and check "Clamp To Another Attribute" if needed.
 
-### Creating Attribute Data Assets
+#### 2\. Add the Component
 
-1. In the Content Browser, right-click and select **Create > Miscellaneous > Data Asset**
-2. Choose **AttributeData** as the asset type
-3. Add attributes with the following properties:
-   - **AttributeTag**: GameplayTag identifying the attribute (e.g., "Attributes.Health")
-   - **Value**: Starting value
-   - **MinValue**: Minimum possible value
-   - **MaxValue**: Maximum possible value
-   - **bUseRegen**: Whether the attribute should regenerate over time
-   - **RegenRate**: Seconds between regeneration ticks
-   - **RegenValue**: Amount to regenerate per tick
+Add the `AttributeSystemComponent` to your Character or Actor.
 
 ```cpp
-// Example of creating an attribute data asset in code
-UAttributeData* AttributeData = NewObject<UAttributeData>();
-FAttribute HealthAttribute = FAttribute(
-    AttributeTags::Health,  // FGameplayTag
-    100.0f,                 // Initial value
-    0.0f,                   // Min value
-    100.0f,                 // Max value
-    true,                   // Use regeneration
-    5.0f,                   // Regeneration rate (seconds)
-    1.0f                    // Regeneration value per tick
+// In your Character's constructor
+AttributeComponent = CreateDefaultSubobject<UAttributeSystemComponent>(TEXT("AttributeComponent"));
+```
+
+#### 3\. Initialize Attributes
+
+In your Actor's `BeginPlay` or via the Component's details panel, assign the Default Attributes list.
+
+### Usage Examples
+
+#### Accessing Values (C++)
+
+```cpp
+// Get current value
+float Health = AttributeComponent->GetAttributeCurrentValue(Tag_Health);
+
+// Get value as percentage (0.0 to 1.0)
+float HealthPercent = AttributeComponent->GetAttributePercent(Tag_Health);
+```
+
+#### Modifying Values (Blueprint / C++)
+
+You can use the `AttributeSystemBlueprintLibrary` for quick access:
+
+  * **Apply Damage:** `ModifyActorAttribute(Actor, Tag_Health, -10.0f)`
+  * **Heal:** `ModifyActorAttribute(Actor, Tag_Health, +20.0f)`
+  * **Set Value:** `SetActorAttributeValue(Actor, Tag_Health, 100.0f)`
+
+#### Applying Modifiers (Buffs)
+
+To create a temporary buff (e.g., +50 Strength for 10 seconds):
+
+```cpp
+FAttributeModifier StrBuff = UAttributeSystemBlueprintLibrary::MakeTemporaryModifier(
+    Tag_Strength_Modifier, 
+    EAttributeModifierOperation::Add, 
+    50.0f, 
+    10.0f // Duration
 );
-AttributeData->Attributes.Add(HealthAttribute);
+
+AttributeComponent->AddModifier(Tag_Strength, StrBuff);
 ```
 
-### Adding the Attribute Component to an Actor
+### Regeneration System
+
+Regeneration is handled automatically if configured in the `AttributeDefinition` Data Asset.
+
+  * **Regen Type:** Per Second, Per Tick, or Delayed.
+  * **Pause on Damage:** Useful for "Shield" type attributes that only regen when not taking damage.
+
+-----
+
+-----
+
+## 🇹🇷 Türkçe Dokümantasyon
+
+# Thyke Öznitelik Sistemi
+
+Unreal Engine için geliştirilmiş sağlam, modüler ve veri odaklı (data-driven) bir Öznitelik (Attribute) Sistemi. **GameplayTags** üzerine kurulu olan bu sistem; karmaşık stat mantığını, değiştiricileri (modifiers), süreli güçlendirmeleri (buffs) ve otomatik yenilenme mekaniklerini kolayca yönetir.
+
+### Özellikler
+
+  * **GameplayTag Tabanlı:** Öznitelikleri tanımlamak için `FGameplayTag` kullanır. Hardcode string veya enum karmaşası yoktur.
+  * **Veri Odaklı Tasarım:** Can, Mana, Güç gibi öznitelikleri `UAttributeDefinition` Data Asset'leri üzerinden tanımlarsınız.
+  * **Runtime Yönetimi:** Oyun çalışırken dinamik olarak öznitelik ekleyip çıkarabilirsiniz.
+  * **Gelişmiş Modifier (Değiştirici) Sistemi:**
+      * **Toplama, Çarpma, Bölme** ve **Üzerine Yazma (Override)** işlemlerini destekler.
+      * Hesaplamalar için **Öncelik (Priority)** sistemi.
+      * Otomatik süre takibi yapan **Geçici Modifierlar** (Buff/Debuff sistemleri için).
+  * **Otomatik Yenilenme (Regen):** Saniye başı, Tick başı veya Hasar sonrası gecikmeli yenilenme (örn: Halo tarzı kalkanlar) desteği.
+  * **Akıllı Sınırlama (Clamping):** Öznitelikler Min/Max değerlere veya **başka bir özniteliğe** (Örn: Mevcut Can'ın Maksimum Can'ı geçememesi) kilitlenebilir.
+  * **Blueprint Kütüphanesi:** C++ yazmadan değerlere erişmek, maliyet kontrolü yapmak ve değer değiştirmek için geniş kapsamlı BP kütüphanesi.
+  * **Event Sistemi:** UI güncellemeleri için `OnAttributeChanged`, `OnAttributeReachedZero` gibi detaylı delegeler.
+
+### Kurulum
+
+1.  `AttributeSystem` klasörünü projenizin `Plugins` veya `Source` klasörüne kopyalayın.
+2.  Projenizin `.Build.cs` dosyasına `"AttributeSystem"` modülünü ekleyin:
+    ```csharp
+    PublicDependencyModuleNames.AddRange(new string[] { "Core", "GameplayTags", "AttributeSystem" });
+    ```
+3.  Projeyi yeniden derleyin (Compile).
+
+### Başlangıç
+
+#### 1\. Öznitelik Tanımlama (Data Asset)
+
+`AttributeDefinition` sınıfından türetilmiş bir Data Asset oluşturun.
+
+  * **Content Browser'da Sağ Tık** -\> Miscellaneous -\> Data Asset -\> `AttributeDefinition`.
+  * **Attribute Tag:** `Attribute.Health` (Can)
+  * **Type:** Resource (Can/Mana gibi harcanabilir) veya Flat (Güç/Defans gibi sabit).
+  * **Regen Config:** İstenirse otomatik yenilenme ayarlarını buradan yapabilirsiniz.
+
+#### 2\. Komponenti Ekleme
+
+Karakterinize `AttributeSystemComponent` ekleyin.
 
 ```cpp
-// In your actor's header file
-UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-class UAttributeComponent* AttributeComponent;
-
-// In your actor's constructor
-AttributeComponent = CreateDefaultSubobject<UAttributeComponent>(TEXT("AttributeComponent"));
+// Karakterin constructor'ında
+AttributeComponent = CreateDefaultSubobject<UAttributeSystemComponent>(TEXT("AttributeComponent"));
 ```
 
-### Loading Attributes from a Data Asset
+#### 3\. Öznitelikleri Başlatma
+
+Aktörünüzün `BeginPlay` fonksiyonunda veya Editör üzerinden Component detaylarında "Default Attributes" listesini doldurarak başlangıç özniteliklerini belirleyin.
+
+### Kullanım Örnekleri
+
+#### Değerlere Erişim (Blueprint & C++)
 
 ```cpp
-// In your actor's BeginPlay or constructor
-if (UAttributeData* MyAttributeData = LoadObject<UAttributeData>(nullptr, TEXT("/Game/Data/DA_PlayerAttributes")))
-{
-    AttributeComponent->AttributeDataAsset = MyAttributeData;
-    AttributeComponent->LoadAttributesFromDataAsset();
-}
+// Mevcut değeri al
+float Health = AttributeComponent->GetAttributeCurrentValue(Tag_Health);
+
+// Yüzdelik değeri al (0.0 ile 1.0 arası, Health Bar için ideal)
+float HealthPercent = AttributeComponent->GetAttributePercent(Tag_Health);
 ```
 
-### Working with Attributes
+#### Değer Değiştirme
+
+`AttributeSystemBlueprintLibrary` kullanarak hızlı işlemler yapabilirsiniz:
+
+  * **Hasar Verme:** `ModifyActorAttribute(Actor, Tag_Health, -10.0f)`
+  * **İyileştirme:** `ModifyActorAttribute(Actor, Tag_Health, +20.0f)`
+  * **Maliyet Kontrolü (Mana yeterli mi?):** `CanAffordAttributeCost` fonksiyonu.
+
+#### Modifier Ekleme (Buff/Debuff)
+
+Geçici bir güçlendirme (Örn: 10 saniyeliğine +50 Güç) oluşturmak için:
 
 ```cpp
-// Getting attribute values
-float CurrentHealth = AttributeComponent->GetAttributeValue(AttributeTags::Health);
-float HealthPercentage = AttributeComponent->GetAttributeNormalized(AttributeTags::Health);
+// Modifier oluştur
+FAttributeModifier StrBuff = UAttributeSystemBlueprintLibrary::MakeTemporaryModifier(
+    Tag_Strength_Modifier,          // Modifier Tag
+    EAttributeModifierOperation::Add, // İşlem Tipi (Ekleme)
+    50.0f,                          // Değer
+    10.0f                           // Süre (Saniye)
+);
 
-// Modifying attributes
-AttributeComponent->DecreaseHealth(10.0f);  // Convenience method for health
-AttributeComponent->IncreaseAttributeValue(AttributeTags::Mana, 15.0f);
-AttributeComponent->SetAttributeValue(AttributeTags::Stamina, 50.0f, EAttributeOperation::Override);
-
-// Applying temporary modifiers
-FAttributeModifier SpeedBoost(AttributeTags::MovementSpeed, 1.5f, 10.0f); // 50% boost for 10 seconds
-AttributeComponent->ApplyModifier(SpeedBoost);
-
-// Binding to events
-AttributeComponent->OnAttributeChanged.AddDynamic(this, &AMyActor::HandleAttributeChanged);
-AttributeComponent->OnDeath.AddDynamic(this, &AMyActor::HandleCharacterDeath);
+// Modifier'ı sisteme ekle
+AttributeComponent->AddModifier(Tag_Strength, StrBuff);
 ```
 
-### Saving and Loading Attributes
+### Yenilenme Sistemi (Regeneration)
 
-```cpp
-// Save current attributes
-AttributeComponent->SaveAttributes("PlayerSaveSlot", 0);
+Yenilenme mantığı `AttributeDefinition` içinde ayarlanır ve otomatik çalışır.
 
-// Load saved attributes
-AttributeComponent->LoadAttributes("PlayerSaveSlot", 0);
-```
+  * **Delayed:** Hasar aldıktan sonra belirli bir süre (örn: 3 sn) bekler, sonra yenilenmeye başlar.
+  * **Per Second:** Her saniye sabit miktarda yeniler.
 
-## Example: Character Implementation
+-----
 
-Here's a complete example of a character with health, mana, and stamina:
-
-```cpp
-// MyCharacter.h
-UCLASS()
-class AMyCharacter : public ACharacter
-{
-    GENERATED_BODY()
-    
-public:
-    AMyCharacter();
-    
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    UAttributeComponent* AttributeComponent;
-    
-    UFUNCTION()
-    void HandleHealthChanged(float CurrentValue, float NewValue);
-    
-    UFUNCTION()
-    void HandleDeath();
-    
-    UFUNCTION(BlueprintCallable)
-    void UseAbility(float ManaCost, float StaminaCost);
-};
-
-// MyCharacter.cpp
-AMyCharacter::AMyCharacter()
-{
-    AttributeComponent = CreateDefaultSubobject<UAttributeComponent>(TEXT("AttributeComponent"));
-}
-
-void AMyCharacter::BeginPlay()
-{
-    Super::BeginPlay();
-    
-    if (AttributeComponent)
-    {
-        AttributeComponent->LoadAttributesFromDataAsset();
-        AttributeComponent->OnHealthChanged.AddDynamic(this, &AMyCharacter::HandleHealthChanged);
-        AttributeComponent->OnDeath.AddDynamic(this, &AMyCharacter::HandleDeath);
-    }
-}
-
-void AMyCharacter::HandleHealthChanged(float CurrentValue, float NewValue)
-{
-    if (NewValue <= CurrentValue * 0.2f)
-    {
-        // Low health effects
-        PlayLowHealthEffects();
-    }
-}
-
-void AMyCharacter::HandleDeath()
-{
-    // Handle character death
-    DisableInput(nullptr);
-    PlayDeathAnimation();
-    // ...
-}
-
-void AMyCharacter::UseAbility(float ManaCost, float StaminaCost)
-{
-    bool bHasEnoughMana = AttributeComponent->GetAttributeValue(AttributeTags::Mana) >= ManaCost;
-    bool bHasEnoughStamina = AttributeComponent->GetAttributeValue(AttributeTags::Stamina) >= StaminaCost;
-    
-    if (bHasEnoughMana && bHasEnoughStamina)
-    {
-        AttributeComponent->DecreaseAttributeValue(AttributeTags::Mana, ManaCost);
-        AttributeComponent->DecreaseAttributeValue(AttributeTags::Stamina, StaminaCost);
-        
-        // Perform ability
-        ExecuteAbility();
-    }
-}
-```
-
-## API Reference
-
-### UAttributeComponent
-
-| Method | Description |
-|--------|-------------|
-| `LoadAttributesFromDataAsset` | Loads attributes from the assigned data asset |
-| `GetAttributeValue` | Returns the current value of an attribute |
-| `SetAttributeValue` | Sets an attribute value with specified operation |
-| `DecreaseAttributeValue` | Reduces an attribute by the specified amount |
-| `IncreaseAttributeValue` | Increases an attribute by the specified amount |
-| `GetAttributeNormalized` | Returns the attribute value as a percentage (0-1) of its range |
-| `AddAttribute` | Adds a new attribute to the component |
-| `RemoveAttribute` | Removes an attribute from the component |
-| `ApplyModifier` | Applies a temporary or permanent modifier to an attribute |
-| `RemoveModifier` | Removes a specific modifier from an attribute |
-| `DecreaseHealth` | Convenience method to reduce health |
-| `IncreaseHealth` | Convenience method to increase health |
-| `SaveAttributes` | Saves all attribute values to a slot |
-| `LoadAttributes` | Loads attribute values from a slot |
-
-### FAttribute Structure
-
-| Property | Description |
-|----------|-------------|
-| `AttributeTag` | GameplayTag identifying the attribute |
-| `Value` | Current value of the attribute |
-| `MinValue` | Minimum possible value |
-| `MaxValue` | Maximum possible value |
-| `bUseRegen` | Whether the attribute regenerates over time |
-| `RegenRate` | Time in seconds between regeneration ticks |
-| `RegenValue` | Amount to regenerate per tick |
-
-### Delegates
-
-| Delegate | Description |
-|----------|-------------|
-| `OnAttributeChanged` | Called when an attribute value changes |
-| `OnAttributeAdded` | Called when a new attribute is added |
-| `OnAttributeRemoved` | Called when an attribute is removed |
-| `OnAttributeThresholdReached` | Called when an attribute reaches a threshold |
-| `OnHealthChanged` | Convenience delegate for health changes |
-| `OnDeath` | Called when health reaches zero |
-
-## Best Practices
-
-1. **Use Data Assets** for consistent attribute configuration across multiple actors
-2. **Leverage GameplayTags** for flexible attribute identification
-3. **Create attribute categories** with tag hierarchies (e.g., "Attributes.Primary.Strength")
-4. **Handle edge cases** like division by zero in attribute operations
-5. **Limit attribute updates** in performance-critical sections
-6. **Use attribute thresholds** for gameplay events rather than polling values
-7. **Consider network replication** needs for multiplayer games
-8. **Add game-specific convenience methods** to extend functionality
-9. **Document your attributes** for team collaboration
-
-## License
+### License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-# Attribute System (Türkçe)
-
-Unreal Engine için komponent tabanlı, modüler ve Blueprint-dostu öznitelik yönetim sistemi.
-
-## Genel Bakış
-
-Attribute System, Unreal Engine'de oyun özniteliklerini (sağlık, mana, dayanıklılık vb.) yönetmek için esnek bir çözümdür. Herhangi bir aktöre kolay entegrasyon için komponent tabanlı bir mimari sağlar ve öznitelik değişiklikleri, yenilenme, eşikler ve kalıcılık destekler.
-
-## Özellikler
-
-- **Komponent Tabanlı Mimari**: Minimal kurulumla herhangi bir aktöre eklemesi kolay
-- **Veri Odaklı Tasarım**: Data Asset'ler kullanarak öznitelikleri yapılandırma
-- **GameplayTags Entegrasyonu**: Öznitelikleri tanımlamak ve referans vermek için etiketler kullanma
-- **Tam Blueprint Desteği**: Tüm işlevselliğe Blueprint'lerden erişim
-- **Öznitelik Modifikatörleri**: Özniteliklere geçici veya kalıcı değişiklikler uygulama
-- **Otomatik Yenilenme**: Özniteliklerin zamanla yenilenmesini yapılandırma
-- **Olay Tabanlı Sistem**: Delegate'ler ile öznitelik değişikliklerine tepki verme
-- **Kaydetme/Yükleme Desteği**: Oyun oturumları arasında öznitelik verilerini koruma
-- **Eşik Bildirimleri**: Öznitelikler belirli değerlere ulaştığında olaylar alma
-- **Performans Optimizasyonu**: Minimal yük için tasarlanmış
-
-## Kurulum
-
-1. Bu depoyu klonlayın
-2. `AttributeSystem` klasörünü projenizin `Plugins` dizinine kopyalayın
-3. Proje dosyalarını yeniden oluşturun ve projenizi derleyin
-4. Eklentiyi proje ayarlarınızda etkinleştirin
-
-Alternatif olarak, kaynak dosyalarını doğrudan projenizin kaynak dizinine kopyalayabilirsiniz.
-
-## Temel Kullanım
-
-### Attribute Data Asset Oluşturma
-
-1. Content Browser'da sağ tıklayın ve **Create > Miscellaneous > Data Asset** seçin
-2. Asset tipi olarak **AttributeData** seçin
-3. Aşağıdaki özelliklere sahip öznitelikler ekleyin:
-   - **AttributeTag**: Özniteliği tanımlayan GameplayTag (örn., "Attributes.Health")
-   - **Value**: Başlangıç değeri
-   - **MinValue**: Olası minimum değer
-   - **MaxValue**: Olası maksimum değer
-   - **bUseRegen**: Özniteliğin zamanla yenilenip yenilenmeyeceği
-   - **RegenRate**: Yenilenme tikleri arasındaki saniye
-   - **RegenValue**: Tik başına yenilenecek miktar
-
-```cpp
-// Kodda attribute data asset oluşturma örneği
-UAttributeData* AttributeData = NewObject<UAttributeData>();
-FAttribute HealthAttribute = FAttribute(
-    AttributeTags::Health,  // FGameplayTag
-    100.0f,                 // Başlangıç değeri
-    0.0f,                   // Min değer
-    100.0f,                 // Max değer
-    true,                   // Yenilenme kullan
-    5.0f,                   // Yenilenme oranı (saniye)
-    1.0f                    // Tik başına yenilenme değeri
-);
-AttributeData->Attributes.Add(HealthAttribute);
-```
-
-### Bir Aktöre Attribute Component Ekleme
-
-```cpp
-// Aktörünüzün header dosyasında
-UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-class UAttributeComponent* AttributeComponent;
-
-// Aktörünüzün constructor'ında
-AttributeComponent = CreateDefaultSubobject<UAttributeComponent>(TEXT("AttributeComponent"));
-```
-
-### Data Asset'ten Öznitelikleri Yükleme
-
-```cpp
-// Aktörünüzün BeginPlay veya constructor'ında
-if (UAttributeData* MyAttributeData = LoadObject<UAttributeData>(nullptr, TEXT("/Game/Data/DA_PlayerAttributes")))
-{
-    AttributeComponent->AttributeDataAsset = MyAttributeData;
-    AttributeComponent->LoadAttributesFromDataAsset();
-}
-```
-
-### Özniteliklerle Çalışma
-
-```cpp
-// Öznitelik değerlerini alma
-float CurrentHealth = AttributeComponent->GetAttributeValue(AttributeTags::Health);
-float HealthPercentage = AttributeComponent->GetAttributeNormalized(AttributeTags::Health);
-
-// Öznitelikleri değiştirme
-AttributeComponent->DecreaseHealth(10.0f);  // Sağlık için kolaylık metodu
-AttributeComponent->IncreaseAttributeValue(AttributeTags::Mana, 15.0f);
-AttributeComponent->SetAttributeValue(AttributeTags::Stamina, 50.0f, EAttributeOperation::Override);
-
-// Geçici modifikatörler uygulama
-FAttributeModifier SpeedBoost(AttributeTags::MovementSpeed, 1.5f, 10.0f); // 10 saniye için %50 artış
-AttributeComponent->ApplyModifier(SpeedBoost);
-
-// Olaylara bağlanma
-AttributeComponent->OnAttributeChanged.AddDynamic(this, &AMyActor::HandleAttributeChanged);
-AttributeComponent->OnDeath.AddDynamic(this, &AMyActor::HandleCharacterDeath);
-```
-
-### Öznitelikleri Kaydetme ve Yükleme
-
-```cpp
-// Mevcut öznitelikleri kaydet
-AttributeComponent->SaveAttributes("PlayerSaveSlot", 0);
-
-// Kaydedilmiş öznitelikleri yükle
-AttributeComponent->LoadAttributes("PlayerSaveSlot", 0);
-```
-
-## Örnek: Karakter İmplementasyonu
-
-İşte sağlık, mana ve dayanıklılığa sahip bir karakter için tam bir örnek:
-
-```cpp
-// MyCharacter.h
-UCLASS()
-class AMyCharacter : public ACharacter
-{
-    GENERATED_BODY()
-    
-public:
-    AMyCharacter();
-    
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    UAttributeComponent* AttributeComponent;
-    
-    UFUNCTION()
-    void HandleHealthChanged(float CurrentValue, float NewValue);
-    
-    UFUNCTION()
-    void HandleDeath();
-    
-    UFUNCTION(BlueprintCallable)
-    void UseAbility(float ManaCost, float StaminaCost);
-};
-
-// MyCharacter.cpp
-AMyCharacter::AMyCharacter()
-{
-    AttributeComponent = CreateDefaultSubobject<UAttributeComponent>(TEXT("AttributeComponent"));
-}
-
-void AMyCharacter::BeginPlay()
-{
-    Super::BeginPlay();
-    
-    if (AttributeComponent)
-    {
-        AttributeComponent->LoadAttributesFromDataAsset();
-        AttributeComponent->OnHealthChanged.AddDynamic(this, &AMyCharacter::HandleHealthChanged);
-        AttributeComponent->OnDeath.AddDynamic(this, &AMyCharacter::HandleDeath);
-    }
-}
-
-void AMyCharacter::HandleHealthChanged(float CurrentValue, float NewValue)
-{
-    if (NewValue <= CurrentValue * 0.2f)
-    {
-        // Düşük sağlık efektleri
-        PlayLowHealthEffects();
-    }
-}
-
-void AMyCharacter::HandleDeath()
-{
-    // Karakter ölümünü işle
-    DisableInput(nullptr);
-    PlayDeathAnimation();
-    // ...
-}
-
-void AMyCharacter::UseAbility(float ManaCost, float StaminaCost)
-{
-    bool bHasEnoughMana = AttributeComponent->GetAttributeValue(AttributeTags::Mana) >= ManaCost;
-    bool bHasEnoughStamina = AttributeComponent->GetAttributeValue(AttributeTags::Stamina) >= StaminaCost;
-    
-    if (bHasEnoughMana && bHasEnoughStamina)
-    {
-        AttributeComponent->DecreaseAttributeValue(AttributeTags::Mana, ManaCost);
-        AttributeComponent->DecreaseAttributeValue(AttributeTags::Stamina, StaminaCost);
-        
-        // Yeteneği gerçekleştir
-        ExecuteAbility();
-    }
-}
-```
-
-## API Referansı
-
-### UAttributeComponent
-
-| Metot | Açıklama |
-|--------|-------------|
-| `LoadAttributesFromDataAsset` | Atanmış data asset'ten öznitelikleri yükler |
-| `GetAttributeValue` | Bir özniteliğin mevcut değerini döndürür |
-| `SetAttributeValue` | Belirtilen işlemle bir öznitelik değerini ayarlar |
-| `DecreaseAttributeValue` | Bir özniteliği belirtilen miktarda azaltır |
-| `IncreaseAttributeValue` | Bir özniteliği belirtilen miktarda artırır |
-| `GetAttributeNormalized` | Öznitelik değerini aralığının yüzdesi olarak (0-1) döndürür |
-| `AddAttribute` | Bileşene yeni bir öznitelik ekler |
-| `RemoveAttribute` | Bileşenden bir özniteliği kaldırır |
-| `ApplyModifier` | Bir özniteliğe geçici veya kalıcı bir modifikatör uygular |
-| `RemoveModifier` | Bir öznitelikten belirli bir modifikatörü kaldırır |
-| `DecreaseHealth` | Sağlığı azaltmak için kolaylık metodu |
-| `IncreaseHealth` | Sağlığı artırmak için kolaylık metodu |
-| `SaveAttributes` | Tüm öznitelik değerlerini bir slota kaydeder |
-| `LoadAttributes` | Bir slottan öznitelik değerlerini yükler |
-
-### FAttribute Yapısı
-
-| Özellik | Açıklama |
-|----------|-------------|
-| `AttributeTag` | Özniteliği tanımlayan GameplayTag |
-| `Value` | Özniteliğin mevcut değeri |
-| `MinValue` | Olası minimum değer |
-| `MaxValue` | Olası maksimum değer |
-| `bUseRegen` | Özniteliğin zamanla yenilenip yenilenmediği |
-| `RegenRate` | Yenilenme tikleri arasındaki saniye cinsinden süre |
-| `RegenValue` | Tik başına yenilenecek miktar |
-
-### Delegate'ler
-
-| Delegate | Açıklama |
-|----------|-------------|
-| `OnAttributeChanged` | Bir öznitelik değeri değiştiğinde çağrılır |
-| `OnAttributeAdded` | Yeni bir öznitelik eklendiğinde çağrılır |
-| `OnAttributeRemoved` | Bir öznitelik kaldırıldığında çağrılır |
-| `OnAttributeThresholdReached` | Bir öznitelik bir eşiğe ulaştığında çağrılır |
-| `OnHealthChanged` | Sağlık değişiklikleri için kolaylık delegate'i |
-| `OnDeath` | Sağlık sıfıra ulaştığında çağrılır |
-
-## En İyi Uygulamalar
-
-1. **Birden çok aktörde tutarlı öznitelik yapılandırması için Data Asset'leri kullanın**
-2. **Esnek öznitelik tanımlama için GameplayTags'ten yararlanın**
-3. **Etiket hiyerarşileri ile öznitelik kategorileri oluşturun** (örn., "Attributes.Primary.Strength")
-4. **Öznitelik işlemlerinde sıfıra bölme gibi uç durumları ele alın**
-5. **Performans açısından kritik bölümlerde öznitelik güncellemelerini sınırlayın**
-6. **Değerleri sürekli kontrol etmek yerine oyun olayları için öznitelik eşiklerini kullanın**
-7. **Çok oyunculu oyunlar için ağ replikasyon ihtiyaçlarını göz önünde bulundurun**
-8. **İşlevselliği genişletmek için oyuna özgü kolaylık metotları ekleyin**
-9. **Takım işbirliği için özniteliklerinizi belgeleyin**
-
-## Lisans
-
-Bu proje MIT Lisansı altında lisanslanmıştır - detaylar için LICENSE dosyasına bakın.
